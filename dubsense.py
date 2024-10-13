@@ -302,7 +302,6 @@ webhook_entry.insert(0, CONFIG.get("webhook_url", ""))
 webhook_entry.bind("<FocusOut>", lambda e: update_webhook_url())
 webhook_entry.grid(row=2, column=2, padx=(0, 5), pady=5, sticky="w")
 
-
 log_area = scrolledtext.ScrolledText(main_frame, width=80, height=10, state=DISABLED, background="#2e2e2e", foreground="white")
 log_area.grid(row=3, column=0, columnspan=3, padx=5, pady=10)
 
@@ -319,11 +318,36 @@ toggle_start_stop_buttons()
 auto_start_thread = threading.Thread(target=check_cod_and_monitor, daemon=True)
 auto_start_thread.start()
 
-def on_close():
+# Tray Icon Setup
+def on_quit(icon=None, item=None):
     global monitoring_active
     monitoring_active = False
-    save_config(CONFIG)
-    app.destroy()
+    save_config(CONFIG)  # Ensure latest config is saved on exit
+    if icon:
+        icon.stop()
+    app.quit()
+
+def show_window(icon, item):
+    icon.stop()
+    app.after(0, app.deiconify)
+
+def hide_window():
+    app.withdraw()
+    image = PILImage.open(icon_path)
+    menu = pystray.Menu(
+        item('Show', show_window),
+        item('Quit', on_quit)
+    )
+    icon = pystray.Icon("DubSense", image, "DubSense", menu)
+    icon.run_detached()
+
+def minimize_to_tray(event=None):
+    if app.state() == 'iconic':
+        hide_window()
+
+def on_close():
+    on_quit()
 
 app.protocol("WM_DELETE_WINDOW", on_close)
+app.bind("<Unmap>", minimize_to_tray)
 app.mainloop()
