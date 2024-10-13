@@ -5,3 +5,5 @@ Backups/backup_working.py
 Backups/backup_working_onnx.py
 config/config.json
 dubsense.png
+dubsense.spec
+pyinstaller_build.bat
