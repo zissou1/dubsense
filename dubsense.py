@@ -39,7 +39,7 @@ default_config = {
     "box_height_percent": 0.22,
     "aspect_ratio": (7, 3),
     "webhook_enabled": True,
-    "webhook_url": "http://10.0.1.47:8123/api/webhook/dubsense-ANjl3h7PSIZKDVdHuD4CNqU6",
+    "webhook_url": "http://...",
     "auto_monitor_cod": True,
     "use_gpu": True
 }
@@ -270,7 +270,7 @@ def log_message(message):
 app = ttk.Window(themename="darkly")
 app.title("DubSense")
 
-icon_path = r"C:\Users\arnqv\iCloudDrive\Programming\dubsense\dubsense.ico"
+icon_path = os.path.join(os.path.dirname(__file__), 'dubsense.ico')
 app.iconbitmap(icon_path)
 app.resizable(False, False)
 
