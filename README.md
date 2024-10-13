@@ -29,6 +29,7 @@
     python dubsense.py
 
 4. **Build**:
+    If building fails, check build_exe_pyinstaller.py and check that the path to mklml is ok.
     ```bash
     python build_exe_pyinstaller.py
     ```
