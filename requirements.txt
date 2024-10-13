@@ -5,6 +5,7 @@ screeninfo
 paddleocr
 ttkbootstrap
 psutil
-onnxruntime
+onnxruntime-gpu==1.19.2
 aiohttp
 pystray
+paddlepaddle-gpu==2.3.2
