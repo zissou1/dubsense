@@ -19,7 +19,7 @@
     ```
 
 2. **Install Dependencies**:  
-    This project requires Python 3.x and some additional libraries. Install them using:
+    This project requires Python 3.10.2 and some additional libraries. Install them using:
     ```bash
     pip install -r requirements.txt
     ```
@@ -27,11 +27,15 @@
 3. **Run the Tool**:
     ```bash
     python dubsense.py
+
+4. **Build**:
+    ```bash
+    python build_exe_pyinstaller.py
     ```
 
 ## Usage
 
-1. Launch Dubsense by running the command above.
+1. Launch Dubsense by running the command above, or build/download .exe.
 2. Configure the webhook URL and other settings directly in the GUI.
 3. Start monitoring, and Dubsense will notify you through the specified webhook when a victory is detected.
 
