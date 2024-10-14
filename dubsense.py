@@ -149,6 +149,16 @@ def update_gpu_usage():
     ocr = initialize_ocr()
     log_message(f"Using {'GPU' if config_manager.config['use_gpu'] else 'CPU'}.")
 
+# Define Test Webhook function
+async def test_webhook():
+    url = config_manager.config["webhook_url"]
+    if not url:
+        log_message("Webhook URL is empty. Please enter a valid URL.")
+        return
+
+    log_message("Testing webhook...")
+    await send_webhook(url)
+
 # Create Widgets
 auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle")
 auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5)
@@ -158,7 +168,9 @@ webhook_checkbox = ttk.Checkbutton(main_frame, text="Enable Webhook", variable=w
 webhook_checkbox.grid(row=2, column=0, sticky="w", padx=5, pady=5)
 webhook_entry = ttk.Entry(main_frame, width=40)
 webhook_entry.insert(0, config_manager.config.get("webhook_url", ""))
-webhook_entry.grid(row=2, column=1, padx=(0, 5), pady=5, sticky="w")
+webhook_entry.grid(row=2, column=2, padx=(0, 5), pady=5, sticky="w")
+test_button = ttk.Button(main_frame, text="Test", command=lambda: asyncio.run(test_webhook()), bootstyle="light")
+test_button.grid(row=2, column=1, padx=5, pady=5, sticky="w")
 
 log_area = scrolledtext.ScrolledText(main_frame, width=80, height=10, state=DISABLED, background="#2e2e2e", foreground="white")
 log_area.grid(row=3, column=0, columnspan=3, padx=5, pady=10)
@@ -262,7 +274,7 @@ def detect_text(image, search_word):
 
     # Check if results are empty
     if not results or not results[0]:
-        log_message("No text detected.")
+        #log_message("No text detected.")
         return False
 
     for line in results[0]:
