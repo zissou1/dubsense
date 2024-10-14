@@ -105,26 +105,110 @@ def initialize_ocr():
 ocr = None
 monitoring_active = threading.Event()
 
-# Async download and unpack files
-async def download_file(url, file_path):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(file_path, 'wb') as f:
-                while True:
-                    chunk = await response.content.read(1024)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+# Function to log download progress to log_area
+def log_download_progress(message):
+    log_area.config(state=tk.NORMAL)
+    log_area.insert(tk.END, f"{message}\n")
+    log_area.see(tk.END)
+    log_area.config(state=tk.DISABLED)
 
+
+# Enhanced Async download function with progress logging and error handling
+async def download_file(url, file_path):
+    try:
+        timeout = aiohttp.ClientTimeout(total=300)  # Set a total timeout for the request
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as response:
+                response.raise_for_status()  # Check if the response was successful
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded_size = 0
+
+                with open(file_path, 'wb') as f:
+                    async for chunk in response.content.iter_chunked(1024):
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        # Calculate and log download progress
+                        if total_size > 0:
+                            percent_complete = (downloaded_size / total_size) * 100
+                            #log_download_progress(f"Downloading {file_path.name}: {percent_complete:.2f}% complete")
+
+                log_download_progress(f"Download completed for {file_path.name}")
+
+                # Unpack and delete the tar file after downloading
+                unpack_tar_file(file_path, file_path.parent)
+                os.remove(file_path)  # Clean up the .tar file
+                #log_download_progress(f"Deleted {file_path.name}")
+
+    except aiohttp.ClientError as e:
+        log_download_progress(f"Failed to download {file_path.name} due to network error: {e}")
+    except Exception as e:
+        log_download_progress(f"An error occurred while downloading {file_path.name}: {e}")
+
+def file_exists_and_valid(file_path, unpack_path):
+    # Check if the unpacked directory exists (assuming unpacking creates this path)
+    return unpack_path.exists() and unpack_path.is_dir()
+
+# Enhanced Async download function with file existence check and unpacking
+async def download_file_if_needed(url, file_path, unpack_path):
+    if file_exists_and_valid(file_path, unpack_path):
+        #log_download_progress(f"{unpack_path.name} already exists and is valid. Skipping download.")
+        return
+
+    await download_file(url, file_path)
+
+# Function to enable or disable widgets
+def set_widgets_state(state):
+    auto_start_checkbox.config(state=state)
+    gpu_checkbox.config(state=state)
+    webhook_checkbox.config(state=state)
+    webhook_entry.config(state=state)
+    test_button.config(state=state)
+
+# Enhanced Async download function with file existence check and conditional logging
 async def download_and_unpack_async():
+    # Disable widgets at the start of download
+    set_widgets_state("disabled")
+    
+    # Define the unpacked directory for each downloaded file
     files = {
-        AppConfig.BASE_DIR / "det" / "en" / "en_PP-OCRv3_det_infer": "https://paddleocr.bj.bcebos.com/PP-OCRv3/english/en_PP-OCRv3_det_infer.tar",
-        AppConfig.BASE_DIR / "rec" / "en" / "en_PP-OCRv4_rec_infer": "https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar",
-        AppConfig.BASE_DIR / "cls" / "ch_ppocr_mobile_v2.0_cls_infer": "https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar"
+        (AppConfig.BASE_DIR / "det" / "en" / "en_PP-OCRv3_det_infer"): "https://paddleocr.bj.bcebos.com/PP-OCRv3/english/en_PP-OCRv3_det_infer.tar",
+        (AppConfig.BASE_DIR / "rec" / "en" / "en_PP-OCRv4_rec_infer"): "https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar",
+        (AppConfig.BASE_DIR / "cls" / "ch_ppocr_mobile_v2.0_cls_infer"): "https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar"
     }
-    tasks = [download_file(url, file_path.with_suffix('.tar')) for file_path, url in files.items()]
-    await asyncio.gather(*tasks)
+    
+    downloads_needed = False
+
+    # Prepare the download tasks only if a file is missing or invalid
+    tasks = []
+    for file_path, url in files.items():
+        if not file_exists_and_valid(file_path, file_path):
+            downloads_needed = True
+            tasks.append(download_file_if_needed(url, file_path.with_suffix('.tar'), file_path))
+
+    # Log and start downloads only if needed
+    if downloads_needed:
+        log_download_progress("Starting file downloads, please wait...")
+    
+    if tasks:
+        await asyncio.gather(*tasks)
+        log_download_progress("All required downloads and unpacking completed.")
+    else:
+        log_download_progress("All models are downloaded and valid.")
+
+    # Enable widgets after the download is complete
+    set_widgets_state("normal")
+
+
+def unpack_tar_file(tar_path, extract_path):
+    try:
+        with tarfile.open(tar_path, "r") as tar:
+            tar.extractall(path=extract_path)
+        #log_download_progress(f"Unpacked {tar_path.name}")
+    except tarfile.TarError as e:
+        log_download_progress(f"Failed to unpack {tar_path.name}: {e}")
 
 # GUI and Button Handlers
 app = ttk.Window(themename="darkly")
@@ -184,9 +268,9 @@ image_label = ttk.Label(main_frame)
 image_label.grid(row=4, column=0, columnspan=3, padx=5, pady=10)
 
 start_button = ttk.Button(main_frame, text="Start Monitoring", command=lambda: start_monitoring(), bootstyle="primary")
-start_button.grid(row=4, column=0, padx=10, pady=10)
+start_button.grid(row=5, column=0, padx=10, pady=10)
 stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=lambda: stop_monitoring(), bootstyle="primary")
-stop_button.grid(row=4, column=2, padx=10, pady=10)
+stop_button.grid(row=5, column=2, padx=10, pady=10)
 
 def log_message(message):
     log_area.config(state=tk.NORMAL)
@@ -312,6 +396,17 @@ async def send_webhook(url, retries=3):
             except aiohttp.ClientError:
                 await asyncio.sleep(2 ** attempt)
         log_message("Failed to send webhook after multiple attempts.")
+
+# Function to start the download asynchronously in a separate thread
+def start_download():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(download_and_unpack_async())
+    loop.close()
+
+# Start the download in a new thread as soon as the program starts
+download_thread = threading.Thread(target=start_download, daemon=True)
+download_thread.start()
 
 # Start Application
 app.protocol("WM_DELETE_WINDOW", lambda: stop_monitoring() or app.quit())
