@@ -61,24 +61,29 @@ class ConfigManager:
 # Configurations
 config_manager = ConfigManager()
 
-# Setup Logging
+# Setup Logging 
 def configure_logging(log_level=logging.INFO, log_format='%(asctime)s - %(levelname)s - %(message)s'):
     logging.basicConfig(level=log_level, format=log_format)
     logger = logging.getLogger()
-    sys.stdout = StreamToLogger(logger, log_level)
-    sys.stderr = StreamToLogger(logger, logging.ERROR)
+    logger.handlers = []  # Clear any default handlers
+    
+    # Set up logging to GUI
+    gui_handler = GuiLoggingHandler()
+    gui_handler.setLevel(log_level)
+    gui_handler.setFormatter(logging.Formatter(log_format))
+    logger.addHandler(gui_handler)
 
-class StreamToLogger:
-    def __init__(self, logger, log_level=logging.INFO):
-        self.logger = logger
-        self.log_level = log_level
-    
-    def write(self, buf):
-        if buf.strip():  # Avoid logging empty lines
-            self.logger.log(self.log_level, buf.strip())
-    
-    def flush(self):
-        pass
+# Setup Logging with direct GUI handler
+class GuiLoggingHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            log_entry = self.format(record)
+            log_area.config(state=tk.NORMAL)
+            log_area.insert(tk.END, f"{log_entry}\n")
+            log_area.see(tk.END)
+            log_area.config(state=tk.DISABLED)
+        except Exception as e:
+            pass  # Avoid recursion if logging fails
 
 configure_logging()
 
