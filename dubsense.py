@@ -16,10 +16,14 @@ from ttkbootstrap.constants import *
 from psutil import Process, IDLE_PRIORITY_CLASS, process_iter
 import json
 import os
+import sys
 import pystray
 from pystray import MenuItem as item
 from PIL import Image as PILImage
 import subprocess
+import urllib.request
+import tarfile
+
 
 # Set process priority to reduce CPU usage
 Process().nice(IDLE_PRIORITY_CLASS)
@@ -84,24 +88,113 @@ def update_gpu_usage():
 
 CALL_OF_DUTY_PROCESS_NAME = "cod.exe"  # Update to the actual Call of Duty process name
 
+# Custom logging handler
+class StreamToLogger:
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+    def flush(self):
+        pass
+
 # Set logging configuration
 logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger()
+
+# Redirect stdout and stderr to the logger
+sys.stdout = StreamToLogger(logger, logging.INFO)
+sys.stderr = StreamToLogger(logger, logging.ERROR)
+
+
+# Define the base directory in the user's home directory
+base_dir = os.path.join(os.path.expanduser("~"), ".paddleocr", "whl")
+
+# Define the file paths and URLs
+files = {
+    os.path.join(base_dir, "det", "en", "en_PP-OCRv3_det_infer"): "https://paddleocr.bj.bcebos.com/PP-OCRv3/english/en_PP-OCRv3_det_infer.tar",
+    os.path.join(base_dir, "rec", "en", "en_PP-OCRv4_rec_infer"): "https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar",
+    os.path.join(base_dir, "cls", "ch_ppocr_mobile_v2.0_cls_infer"): "https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar"
+}
+
+def verify_tar_file(tar_file_path):
+    try:
+        with tarfile.open(tar_file_path, "r") as tar:
+            tar.getmembers()
+        return True
+    except tarfile.ReadError:
+        return False
+
+def download_and_unpack(file_path, url):
+    tar_file_path = file_path + ".tar"
+    
+    # Create directories if they don't exist
+    os.makedirs(os.path.dirname(tar_file_path), exist_ok=True)
+    
+    # Download the file with progress update
+    def reporthook(block_num, block_size, total_size):
+        downloaded = block_num * block_size
+        if total_size > 0:
+            percent = downloaded / total_size * 100
+            #log_message(f"Downloading {url}... {percent:.2f}%")
+    
+    while True:
+        log_message(f"Downloading {url}... Please wait.")
+        urllib.request.urlretrieve(url, tar_file_path, reporthook)
+        #log_message(f"Downloaded {tar_file_path}")
+        
+        # Verify the tar file
+        if verify_tar_file(tar_file_path):
+            break
+        else:
+            log_message(f"{tar_file_path} is corrupted. Re-downloading...")
+            os.remove(tar_file_path)
+    
+    # Unpack the tar file
+    if tarfile.is_tarfile(tar_file_path):
+       # log_message(f"Unpacking {tar_file_path}...")
+        with tarfile.open(tar_file_path, "r") as tar:
+            tar.extractall(path=os.path.dirname(file_path))
+        #log_message(f"Unpacked {tar_file_path}")
+        
+        # Delete the tar file after unpacking
+        os.remove(tar_file_path)
+        #log_message(f"Deleted {tar_file_path}")
+    else:
+        log_message(f"{tar_file_path} is not a valid tar file")
+
+def check_and_download_files(files):
+    disable_widgets()
+    any_downloads = False
+    for file_path, url in files.items():
+        if not os.path.exists(file_path):
+            download_and_unpack(file_path, url)
+            any_downloads = True
+    if any_downloads:
+        log_message("All downloads complete")
+    enable_widgets()
+
+
 
 # OCR Setup with exception handling
 def initialize_ocr():
     try:
-        # Call init.py to download and unpack models if necessary
-        subprocess.run(["python", os.path.join(os.path.dirname(__file__), "init.py")], check=True)
         return PaddleOCR(
             use_angle_cls=False,
             use_gpu=CONFIG.get("use_gpu", False),
             lang='en'
         )
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror("Initialization Error", f"Error initializing OCR: {e}")
+        raise
     except Exception as e:
         messagebox.showerror("Initialization Error", f"Error initializing OCR: {e}")
         raise
 
-ocr = initialize_ocr()
 
 def capture_screen():
     monitor = get_monitors()[0]
@@ -222,11 +315,15 @@ def log_error(message):
     messagebox.showerror("Error", message)
 
 def start_monitoring():
-    global monitoring_active
+    global monitoring_active, ocr
     if not monitoring_active:
         monitoring_active = True
         log_message("Monitoring started...")
         toggle_widgets_state("disabled")
+        
+        # Initialize OCR when monitoring starts
+        ocr = initialize_ocr()
+        
         monitoring_thread = threading.Thread(target=monitor_screen, daemon=True)
         monitoring_thread.start()
 
@@ -259,6 +356,23 @@ def log_message(message):
         log_area.insert(tk.END, f"{message}\n")
         log_area.see(tk.END)
         log_area.config(state=tk.DISABLED)
+
+def disable_widgets():
+    for widget in main_frame.winfo_children():
+        if widget != log_area:
+            try:
+                widget.config(state=tk.DISABLED)
+            except tk.TclError:
+                pass
+    log_area.config(state=tk.NORMAL)
+
+def enable_widgets():
+    for widget in main_frame.winfo_children():
+        if widget != log_area:
+            try:
+                widget.config(state=tk.NORMAL)
+            except tk.TclError:
+                pass
 
 app = ttk.Window(themename="darkly")
 app.title("DubSense")
@@ -307,6 +421,14 @@ stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=stop_monito
 stop_button.grid(row=5, column=2, padx=10, pady=10)
 
 toggle_start_stop_buttons()
+
+# Function to run check_and_download_files in a separate thread
+def run_check_and_download_files():
+    check_and_download_files(files)
+
+# Start the download process in a separate thread after the GUI is set up
+download_thread = threading.Thread(target=run_check_and_download_files, daemon=True)
+download_thread.start()
 
 auto_start_thread = threading.Thread(target=check_cod_and_monitor, daemon=True)
 auto_start_thread.start()
