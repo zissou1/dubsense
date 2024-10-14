@@ -22,7 +22,7 @@ from pathlib import Path
 
 # Global Constants and Configurations
 class AppConfig:
-    CONFIG_FILE = Path(os.path.dirname(__file__)) / 'config/config.json'
+    CONFIG_FILE = Path.home() / '.dubsense' / 'config.json'
     ICON_PATH = Path(os.path.dirname(__file__)) / 'dubsense.ico'
     CALL_OF_DUTY_PROCESS_NAME = "cod.exe"
     BASE_DIR = Path(os.path.expanduser("~")) / ".paddleocr" / "whl"
