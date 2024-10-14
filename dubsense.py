@@ -14,7 +14,6 @@ from tkinter import scrolledtext, messagebox
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from psutil import Process, IDLE_PRIORITY_CLASS, process_iter
-import onnxruntime as ort
 import json
 import os
 import pystray
@@ -90,23 +89,14 @@ logging.basicConfig(level=logging.ERROR)
 # OCR Setup with exception handling
 def initialize_ocr():
     try:
-        execution_provider = get_onnx_execution_provider(prefer_gpu=CONFIG.get("use_gpu", False))
         return PaddleOCR(
             use_angle_cls=False,
-            use_gpu=(execution_provider != 'CPUExecutionProvider'),
-            lang='en',
-            execution_providers=[execution_provider]
+            use_gpu=CONFIG.get("use_gpu", False),
+            lang='en'
         )
     except Exception as e:
         messagebox.showerror("Initialization Error", f"Error initializing OCR: {e}")
         raise
-
-def get_onnx_execution_provider(prefer_gpu=False):
-    if prefer_gpu:
-        providers = ['CUDAExecutionProvider', 'ROCmExecutionProvider', 'DirectMLExecutionProvider']
-        available = ort.get_available_providers()
-        return next((p for p in providers if p in available), 'CPUExecutionProvider')
-    return 'CPUExecutionProvider'
 
 ocr = initialize_ocr()
 
