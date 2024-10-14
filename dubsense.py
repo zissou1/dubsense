@@ -2,7 +2,30 @@ import cv2
 import time
 import re
 import threading
+import sys
 import logging
+# Custom logging handler
+class StreamToLogger:
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        if buf.strip():  # Avoid logging empty lines
+            self.logger.log(self.log_level, buf.strip())
+
+    def flush(self):
+        pass
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+
+# Redirect stdout and stderr to the logger
+sys.stdout = StreamToLogger(logger, logging.INFO)
+sys.stderr = StreamToLogger(logger, logging.ERROR)
+
 import asyncio
 import aiohttp
 import numpy as np
@@ -16,7 +39,6 @@ from ttkbootstrap.constants import *
 from psutil import Process, IDLE_PRIORITY_CLASS, process_iter
 import json
 import os
-import sys
 import pystray
 from pystray import MenuItem as item
 from PIL import Image as PILImage
@@ -24,6 +46,8 @@ import subprocess
 import urllib.request
 import tarfile
 
+#import sys
+#sys.setrecursionlimit(1500)  # Increase the recursion limit
 
 # Set process priority to reduce CPU usage
 Process().nice(IDLE_PRIORITY_CLASS)
@@ -87,29 +111,6 @@ def update_gpu_usage():
     log_message(f"Using {'GPU' if CONFIG['use_gpu'] else 'CPU'}.")
 
 CALL_OF_DUTY_PROCESS_NAME = "cod.exe"  # Update to the actual Call of Duty process name
-
-# Custom logging handler
-class StreamToLogger:
-    def __init__(self, logger, log_level=logging.INFO):
-        self.logger = logger
-        self.log_level = log_level
-        self.linebuf = ''
-
-    def write(self, buf):
-        for line in buf.rstrip().splitlines():
-            self.logger.log(self.log_level, line.rstrip())
-
-    def flush(self):
-        pass
-
-# Set logging configuration
-logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger()
-
-# Redirect stdout and stderr to the logger
-sys.stdout = StreamToLogger(logger, logging.INFO)
-sys.stderr = StreamToLogger(logger, logging.ERROR)
-
 
 # Define the base directory in the user's home directory
 base_dir = os.path.join(os.path.expanduser("~"), ".paddleocr", "whl")
