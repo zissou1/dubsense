@@ -6,7 +6,7 @@ Backups/backup_working_onnx.py
 config/config.json
 dubsense.png
 dubsense.spec
-pyinstaller_build.bat
+pyinstaller_dubsense.bat
 __pycache__/hook-paddleocr.cpython-310.pyc
 build/dubsense/Analysis-00.toc
 build/dubsense/base_library.zip
