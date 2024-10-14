@@ -1,6 +1,6 @@
 # Dubsense
 
-**Dubsense** is a lightweight monitoring tool with a user-friendly GUI that continuously checks for victory notifications in *Call of Duty: Warzone*. When a victory is detected, the tool can send a webhook notification to a specified endpoint, making it ideal for players and teams who want real-time alerts.
+**Dubsense** is a lightweight monitoring tool for Windows with a user-friendly GUI that continuously checks for victory notifications in *Call of Duty: Warzone*. When a victory is detected, the tool can send a webhook notification to a specified endpoint, making it ideal for players and teams who want real-time alerts. It can utilize your GPU (Nvidia only).
 
 ## Features
 
@@ -23,6 +23,11 @@
     ```bash
     pip install -r requirements.txt
     ```
+    You also need to install CUDA and cuDNN
+    CUDA 11.7 https://developer.nvidia.com/cuda-toolkit-archive
+    cuDNN v8.9.7 for CUDA 11.x https://developer.nvidia.com/rdp/cudnn-archive
+
+    Add CUDA 11.7 to the PATH environment variable, usually at C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\bin
 
 3. **Run the Tool**:
     ```bash

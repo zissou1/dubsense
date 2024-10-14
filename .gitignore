@@ -23,3 +23,15 @@ build/dubsense/localpycs/pyimod03_ctypes.pyc
 build/dubsense/localpycs/pyimod04_pywin32.pyc
 build/dubsense/localpycs/struct.pyc
 dist/dubsense.exe
+Models/cls.onnx
+Models/det.onnx
+Models/model.onnx
+Models/model.onnx.data
+Models/rec.onnx
+build/dubsense(1)/Analysis-00.toc
+build/dubsense(1)/base_library.zip
+build/dubsense(1)/dubsense.pkg
+build/dubsense(1)/EXE-00.toc
+build/dubsense(1)/PKG-00.toc
+build/dubsense(1)/PYZ-00.pyz
+build/dubsense(1)/PYZ-00.toc

@@ -5,7 +5,6 @@ screeninfo
 paddleocr
 ttkbootstrap
 psutil
-onnxruntime-gpu==1.19.2
 aiohttp
 pystray
-paddlepaddle-gpu==2.3.2
+paddlepaddle-gpu==2.5.2 -f https://www.paddlepaddle.org.cn/whl/linux/mkl/cu117.html
