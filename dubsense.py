@@ -19,6 +19,7 @@ import os
 import pystray
 from pystray import MenuItem as item
 from PIL import Image as PILImage
+import subprocess
 
 # Set process priority to reduce CPU usage
 Process().nice(IDLE_PRIORITY_CLASS)
@@ -89,6 +90,8 @@ logging.basicConfig(level=logging.ERROR)
 # OCR Setup with exception handling
 def initialize_ocr():
     try:
+        # Call init.py to download and unpack models if necessary
+        subprocess.run(["python", os.path.join(os.path.dirname(__file__), "init.py")], check=True)
         return PaddleOCR(
             use_angle_cls=False,
             use_gpu=CONFIG.get("use_gpu", False),

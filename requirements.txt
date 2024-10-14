@@ -2,7 +2,7 @@ opencv-python
 numpy
 pillow
 screeninfo
-paddleocr
+paddleocr==2.8.1
 ttkbootstrap
 psutil
 aiohttp
