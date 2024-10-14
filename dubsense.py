@@ -275,6 +275,13 @@ async def test_webhook():
     log_message("Testing webhook...")
     await send_webhook(url)
 
+# Function to update and save the webhook URL
+def update_webhook_url(event=None):
+    new_url = webhook_entry.get().strip()
+    if new_url:
+        config_manager.config["webhook_url"] = new_url
+        config_manager.save_config()
+
 # Create Widgets
 auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle", command=update_auto_monitor)
 auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5) 
@@ -285,6 +292,10 @@ webhook_checkbox.grid(row=2, column=0, sticky="w", padx=5, pady=5)
 webhook_entry = ttk.Entry(main_frame, width=40)
 webhook_entry.insert(0, config_manager.config.get("webhook_url", ""))
 webhook_entry.grid(row=2, column=2, padx=(0, 5), pady=5, sticky="w")
+
+# Bind the webhook entry to save the URL when focus is lost (e.g., user presses Enter or clicks away)
+webhook_entry.bind("<FocusOut>", update_webhook_url)
+
 test_button = ttk.Button(main_frame, text="Test", command=lambda: asyncio.run(test_webhook()), bootstyle="light")
 test_button.grid(row=2, column=1, padx=5, pady=5, sticky="w")
 
