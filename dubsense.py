@@ -2,7 +2,6 @@ import cv2
 import time
 import re
 import threading
-import sys
 import logging
 import asyncio
 import aiohttp
@@ -17,10 +16,7 @@ from ttkbootstrap.constants import *
 from psutil import Process, IDLE_PRIORITY_CLASS, process_iter
 import json
 import os
-import pystray
-from pystray import MenuItem as item
 from PIL import Image as PILImage
-import urllib.request
 import tarfile
 from pathlib import Path
 
@@ -210,6 +206,37 @@ def unpack_tar_file(tar_path, extract_path):
     except tarfile.TarError as e:
         log_download_progress(f"Failed to unpack {tar_path.name}: {e}")
 
+# Start or stop auto-monitoring based on the checkbox setting
+def is_cod_running():
+    for process in process_iter(['name']):
+        if process.info['name'] == AppConfig.CALL_OF_DUTY_PROCESS_NAME:
+            return True
+    return False
+
+# Monitor Call of Duty process and automatically start/stop monitoring
+def auto_start_monitoring():
+    while True:
+        if auto_start_var.get():  # Check if the checkbox is enabled
+            cod_running = is_cod_running()
+            if cod_running and not monitoring_active.is_set():
+                start_monitoring()
+            elif not cod_running and monitoring_active.is_set():
+                stop_monitoring()
+        time.sleep(5)  # Check every 5 seconds
+
+# Function to enable or disable widgets
+def set_widgets_state(state):
+    auto_start_checkbox.config(state=state)
+    gpu_checkbox.config(state=state)
+    webhook_checkbox.config(state=state)
+    webhook_entry.config(state=state)
+    test_button.config(state=state)
+
+# Define update_auto_monitor function to save the checkbox state
+def update_auto_monitor():
+    config_manager.config["auto_monitor_cod"] = auto_start_var.get()
+    config_manager.save_config()
+
 # GUI and Button Handlers
 app = ttk.Window(themename="darkly")
 app.title("DubSense")
@@ -249,8 +276,8 @@ async def test_webhook():
     await send_webhook(url)
 
 # Create Widgets
-auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle")
-auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5)
+auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle", command=update_auto_monitor)
+auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5) 
 gpu_checkbox = ttk.Checkbutton(main_frame, text="Use GPU", variable=use_gpu_var, bootstyle="primary-round-toggle",command=update_gpu_usage)  # Ensure GPU setting is applied on change
 gpu_checkbox.grid(row=1, column=0, sticky="w", padx=5, pady=5)
 webhook_checkbox = ttk.Checkbutton(main_frame, text="Enable Webhook", variable=webhook_var, bootstyle="primary-round-toggle")
@@ -285,6 +312,13 @@ def update_image_display(image):
     image_label.config(image=image_tk)
     image_label.image = image_tk
 
+# Function to enable or disable specific widgets based on monitoring state
+def set_monitoring_widgets_state(state):
+    webhook_checkbox.config(state=state)
+    webhook_entry.config(state=state)
+    gpu_checkbox.config(state=state)
+    test_button.config(state=state)
+
 # Screen Monitoring Functions
 def start_monitoring():
     global ocr
@@ -292,12 +326,14 @@ def start_monitoring():
         monitoring_active.set()
         ocr = initialize_ocr()
         log_message("Monitoring started...")
+        set_monitoring_widgets_state("disabled")  # Disable widgets when monitoring starts
         threading.Thread(target=monitor_screen, daemon=True).start()
 
 def stop_monitoring():
     if monitoring_active.is_set():
         monitoring_active.clear()
         log_message("Monitoring stopped.")
+        set_monitoring_widgets_state("normal")  # Re-enable widgets when monitoring stops
 
 def monitor_screen():
     while monitoring_active.is_set():
@@ -407,6 +443,10 @@ def start_download():
 # Start the download in a new thread as soon as the program starts
 download_thread = threading.Thread(target=start_download, daemon=True)
 download_thread.start()
+
+# Start the auto-monitoring thread
+auto_monitor_thread = threading.Thread(target=auto_start_monitoring, daemon=True)
+auto_monitor_thread.start()
 
 # Start Application
 app.protocol("WM_DELETE_WINDOW", lambda: stop_monitoring() or app.quit())
