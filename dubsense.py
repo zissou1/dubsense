@@ -1,6 +1,5 @@
 import cv2
 import time
-import re
 import threading
 import logging
 import asyncio
@@ -8,7 +7,7 @@ import aiohttp
 import numpy as np
 from PIL import ImageGrab, Image, ImageTk
 from screeninfo import get_monitors
-from paddleocr import PaddleOCR
+import pytesseract
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 import ttkbootstrap as ttk
@@ -16,9 +15,9 @@ from ttkbootstrap.constants import *
 from psutil import Process, IDLE_PRIORITY_CLASS, process_iter
 import json
 import os
-from PIL import Image as PILImage
-import tarfile
+from PIL import Image 
 from pathlib import Path
+import re
 
 # Global Constants and Configurations
 class AppConfig:
@@ -29,14 +28,12 @@ class AppConfig:
     
     default_config = {
         "search_word": "CTO",
-        "check_interval": 2.5,
+        "check_interval": 1,
         "trigger_interval": 15,
         "box_height_percent": 0.22,
         "aspect_ratio": (7, 3),
         "webhook_enabled": True,
         "webhook_url": "http://...",
-        "auto_monitor_cod": True,
-        "use_gpu": True
     }
 
 class ConfigManager:
@@ -89,153 +86,26 @@ Process().nice(IDLE_PRIORITY_CLASS)
 # OCR Setup
 def initialize_ocr():
     try:
-        return PaddleOCR(
-            use_angle_cls=False,
-            use_gpu=config_manager.config.get("use_gpu", False),
-            lang='en'
-        )
+        # Tesseract OCR does not require initialization like PaddleOCR
+        return pytesseract
     except Exception as e:
         messagebox.showerror("Initialization Error", f"Error initializing OCR: {e}")
         raise
 
-ocr = None
+ocr = initialize_ocr()
 monitoring_active = threading.Event()
 
-# Function to log download progress to log_area
-def log_download_progress(message):
-    log_area.config(state=tk.NORMAL)
-    log_area.insert(tk.END, f"{message}\n")
-    log_area.see(tk.END)
-    log_area.config(state=tk.DISABLED)
-
-
-# Enhanced Async download function with progress logging and error handling
-async def download_file(url, file_path):
-    try:
-        timeout = aiohttp.ClientTimeout(total=300)  # Set a total timeout for the request
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as response:
-                response.raise_for_status()  # Check if the response was successful
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-                total_size = int(response.headers.get('content-length', 0))
-                downloaded_size = 0
-
-                with open(file_path, 'wb') as f:
-                    async for chunk in response.content.iter_chunked(1024):
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        downloaded_size += len(chunk)
-                        # Calculate and log download progress
-                        if total_size > 0:
-                            percent_complete = (downloaded_size / total_size) * 100
-                            #log_download_progress(f"Downloading {file_path.name}: {percent_complete:.2f}% complete")
-
-                log_download_progress(f"Download completed for {file_path.name}")
-
-                # Unpack and delete the tar file after downloading
-                unpack_tar_file(file_path, file_path.parent)
-                os.remove(file_path)  # Clean up the .tar file
-                #log_download_progress(f"Deleted {file_path.name}")
-
-    except aiohttp.ClientError as e:
-        log_download_progress(f"Failed to download {file_path.name} due to network error: {e}")
-    except Exception as e:
-        log_download_progress(f"An error occurred while downloading {file_path.name}: {e}")
-
-def file_exists_and_valid(file_path, unpack_path):
-    # Check if the unpacked directory exists (assuming unpacking creates this path)
-    return unpack_path.exists() and unpack_path.is_dir()
-
-# Enhanced Async download function with file existence check and unpacking
-async def download_file_if_needed(url, file_path, unpack_path):
-    if file_exists_and_valid(file_path, unpack_path):
-        #log_download_progress(f"{unpack_path.name} already exists and is valid. Skipping download.")
-        return
-
-    await download_file(url, file_path)
-
 # Function to enable or disable widgets
 def set_widgets_state(state):
-    auto_start_checkbox.config(state=state)
-    gpu_checkbox.config(state=state)
     webhook_checkbox.config(state=state)
     webhook_entry.config(state=state)
     test_button.config(state=state)
 
-# Enhanced Async download function with file existence check and conditional logging
-async def download_and_unpack_async():
-    # Disable widgets at the start of download
-    set_widgets_state("disabled")
-    
-    # Define the unpacked directory for each downloaded file
-    files = {
-        (AppConfig.BASE_DIR / "det" / "en" / "en_PP-OCRv3_det_infer"): "https://paddleocr.bj.bcebos.com/PP-OCRv3/english/en_PP-OCRv3_det_infer.tar",
-        (AppConfig.BASE_DIR / "rec" / "en" / "en_PP-OCRv4_rec_infer"): "https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar",
-        (AppConfig.BASE_DIR / "cls" / "ch_ppocr_mobile_v2.0_cls_infer"): "https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar"
-    }
-    
-    downloads_needed = False
-
-    # Prepare the download tasks only if a file is missing or invalid
-    tasks = []
-    for file_path, url in files.items():
-        if not file_exists_and_valid(file_path, file_path):
-            downloads_needed = True
-            tasks.append(download_file_if_needed(url, file_path.with_suffix('.tar'), file_path))
-
-    # Log and start downloads only if needed
-    if downloads_needed:
-        log_download_progress("Starting file downloads, please wait...")
-    
-    if tasks:
-        await asyncio.gather(*tasks)
-        log_download_progress("All required downloads and unpacking completed.")
-    else:
-        log_download_progress("All models are downloaded and valid.")
-
-    # Enable widgets after the download is complete
-    set_widgets_state("normal")
-
-
-def unpack_tar_file(tar_path, extract_path):
-    try:
-        with tarfile.open(tar_path, "r") as tar:
-            tar.extractall(path=extract_path)
-        #log_download_progress(f"Unpacked {tar_path.name}")
-    except tarfile.TarError as e:
-        log_download_progress(f"Failed to unpack {tar_path.name}: {e}")
-
-# Start or stop auto-monitoring based on the checkbox setting
-def is_cod_running():
-    for process in process_iter(['name']):
-        if process.info['name'] == AppConfig.CALL_OF_DUTY_PROCESS_NAME:
-            return True
-    return False
-
-# Monitor Call of Duty process and automatically start/stop monitoring
-def auto_start_monitoring():
-    while True:
-        if auto_start_var.get():  # Check if the checkbox is enabled
-            cod_running = is_cod_running()
-            if cod_running and not monitoring_active.is_set():
-                start_monitoring()
-            elif not cod_running and monitoring_active.is_set():
-                stop_monitoring()
-        time.sleep(5)  # Check every 5 seconds
-
 # Function to enable or disable widgets
 def set_widgets_state(state):
-    auto_start_checkbox.config(state=state)
-    gpu_checkbox.config(state=state)
     webhook_checkbox.config(state=state)
     webhook_entry.config(state=state)
     test_button.config(state=state)
-
-# Define update_auto_monitor function to save the checkbox state
-def update_auto_monitor():
-    config_manager.config["auto_monitor_cod"] = auto_start_var.get()
-    config_manager.save_config()
 
 # GUI and Button Handlers
 app = ttk.Window(themename="darkly")
@@ -245,25 +115,7 @@ app.resizable(False, False)
 main_frame = ttk.Frame(app, padding=(15, 10))
 main_frame.grid(row=0, column=0, sticky="nsew")
 
-auto_start_var = ttk.BooleanVar(value=config_manager.config.get("auto_monitor_cod", True))
-use_gpu_var = ttk.BooleanVar(value=config_manager.config.get("use_gpu", False))
 webhook_var = ttk.BooleanVar(value=config_manager.config.get("webhook_enabled", True))
-
-def update_gpu_usage():
-    # Update configuration
-    config_manager.config["use_gpu"] = use_gpu_var.get()
-    config_manager.save_config()
-
-    # Set environment variable to enforce GPU or CPU usage
-    if config_manager.config["use_gpu"]:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Enables GPU (or specify a device ID)
-    else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables all GPUs, forcing CPU
-
-    # Reinitialize OCR with the new GPU setting
-    global ocr
-    ocr = initialize_ocr()
-    log_message(f"Using {'GPU' if config_manager.config['use_gpu'] else 'CPU'}.")
 
 # Define Test Webhook function
 async def test_webhook():
@@ -283,10 +135,6 @@ def update_webhook_url(event=None):
         config_manager.save_config()
 
 # Create Widgets
-auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle", command=update_auto_monitor)
-auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5) 
-gpu_checkbox = ttk.Checkbutton(main_frame, text="Use GPU", variable=use_gpu_var, bootstyle="primary-round-toggle",command=update_gpu_usage)  # Ensure GPU setting is applied on change
-gpu_checkbox.grid(row=1, column=0, sticky="w", padx=5, pady=5)
 webhook_checkbox = ttk.Checkbutton(main_frame, text="Enable Webhook", variable=webhook_var, bootstyle="primary-round-toggle")
 webhook_checkbox.grid(row=2, column=0, sticky="w", padx=5, pady=5)
 webhook_entry = ttk.Entry(main_frame, width=40)
@@ -327,7 +175,6 @@ def update_image_display(image):
 def set_monitoring_widgets_state(state):
     webhook_checkbox.config(state=state)
     webhook_entry.config(state=state)
-    gpu_checkbox.config(state=state)
     test_button.config(state=state)
 
 # Screen Monitoring Functions
@@ -355,7 +202,7 @@ def monitor_screen():
         # Detect text and handle logging/webhook within detect_text to respect trigger interval
         detect_text(processed_image, config_manager.config["search_word"])
         
-        time.sleep(config_manager.config["check_interval"])
+        time.sleep(config_manager.config["check_interval"])  # Use the check_interval from the configuration
 
 # OCR and Image Processing
 def capture_screen():
@@ -378,7 +225,6 @@ def capture_screen():
 
     return resized_screen
 
-
 def calculate_bbox(monitor):
     box_height = int(monitor.height * config_manager.config["box_height_percent"])
     box_width = int(box_height * config_manager.config["aspect_ratio"][0] / config_manager.config["aspect_ratio"][1])
@@ -390,10 +236,16 @@ def calculate_bbox(monitor):
 def process_image(image):
     global latest_image
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Apply thresholding to binarize the image
+    # Apply thresholding to binarize the image
+    _, binary_image = cv2.threshold(gray_image, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Apply denoising to remove noise
+    denoised_image = cv2.fastNlMeansDenoising(binary_image, h=30)
 
     # Further scale down by half
-    final_width = int(gray_image.shape[1] * 1)
-    final_height = int(gray_image.shape[0] * 1)
+    final_width = int(denoised_image.shape[1] * 1)
+    final_height = int(denoised_image.shape[0] * 1)
     processed_image = cv2.resize(gray_image, (final_width, final_height))
 
     latest_image = processed_image
@@ -406,28 +258,32 @@ def detect_text(image, search_word):
         detect_text.last_detection_time = 0  # Initialize attribute if it doesn't exist
 
     current_time = time.time()
-    results = ocr.ocr(image, cls=False)
+    try:
+        custom_config = r'--oem 3 --psm 6'
+        text = pytesseract.image_to_string(image, config=custom_config)
+        #log_message(f"Detected text: {text}")  # Log the detected text
+    except Exception as e:
+        log_message(f"Error during OCR: {e}")
+        return False
 
     # Check if results are empty
-    if not results or not results[0]:
+    if not text:
         #log_message("No text detected.")
         return False
 
-    for line in results[0]:
-        text = re.sub(r'[^A-Z]', '', line[1][0].upper())
-        if search_word in text.replace("Q", "O"):
-            # Check cooldown based on trigger_interval
-            if current_time - detect_text.last_detection_time >= config_manager.config["trigger_interval"]:
-                log_message("Victory Detected!")  # Log only once per interval
-                detect_text.last_detection_time = current_time  # Update last detection time
-                
-                # Send webhook if enabled
-                if config_manager.config["webhook_enabled"]:
-                    asyncio.run(send_webhook(config_manager.config["webhook_url"]))
-            return True
+    # Use regular expression to check for the exact match of the search word
+    if re.search(r'\b' + re.escape(search_word) + r'\b', text):
+        # Check cooldown based on trigger_interval
+        if current_time - detect_text.last_detection_time >= config_manager.config["trigger_interval"]:
+            log_message("Victory Detected!")  # Log only once per interval
+            detect_text.last_detection_time = current_time  # Update last detection time
+            
+            # Send webhook if enabled and checkbox is checked
+            if config_manager.config["webhook_enabled"] and webhook_var.get():
+                asyncio.run(send_webhook(config_manager.config["webhook_url"]))
+        return True
 
     return False
-
 
 # Webhook Sending
 async def send_webhook(url, retries=3):
@@ -443,21 +299,6 @@ async def send_webhook(url, retries=3):
             except aiohttp.ClientError:
                 await asyncio.sleep(2 ** attempt)
         log_message("Failed to send webhook after multiple attempts.")
-
-# Function to start the download asynchronously in a separate thread
-def start_download():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(download_and_unpack_async())
-    loop.close()
-
-# Start the download in a new thread as soon as the program starts
-download_thread = threading.Thread(target=start_download, daemon=True)
-download_thread.start()
-
-# Start the auto-monitoring thread
-auto_monitor_thread = threading.Thread(target=auto_start_monitoring, daemon=True)
-auto_monitor_thread.start()
 
 # Start Application
 app.protocol("WM_DELETE_WINDOW", lambda: stop_monitoring() or app.quit())

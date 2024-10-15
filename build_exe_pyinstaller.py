@@ -14,8 +14,8 @@ pyinstaller_command = [
     '--icon=dubsense.ico',
     '--add-binary',
     os.path.join(os.path.dirname(__file__), 'dubsense.ico') + ';.',
-    '--add-binary',
-    os.path.join(os.getenv('LOCALAPPDATA'), 'Programs', 'Python', 'Python310', 'Lib', 'site-packages', 'paddle', 'libs', 'mklml.dll') + ';.',
+    #'--add-binary',
+    #os.path.join(os.getenv('LOCALAPPDATA'), 'Programs', 'Python', 'Python310', 'Lib', 'site-packages', 'paddle', 'libs', 'mklml.dll') + ';.',
     script_path
 ]
 
