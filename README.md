@@ -1,6 +1,6 @@
 # Dubsense
 
-**Dubsense** is a lightweight monitoring tool for Windows with a user-friendly GUI that continuously checks for victory notifications in *Call of Duty: Warzone*. When a victory is detected, the tool can send a webhook notification to a specified endpoint, making it ideal for players and teams who want real-time alerts. It can utilize your GPU (Nvidia only).
+**Dubsense** is a lightweight monitoring tool for Windows with a user-friendly GUI that continuously checks for victory notifications in *Call of Duty: Warzone*. When a victory is detected, the tool can send a webhook notification to a specified endpoint, making it ideal for players and teams who want real-time alerts.
 
 ## Features
 
@@ -19,25 +19,21 @@
     ```
 
 2. **Install Dependencies**:  
-    This project requires Python 3.10.2 and some additional libraries. Install them using:
+   TesseractOCS needs to be installed from https://github.com/UB-Mannheim/tesseract/wiki. 
+   This project requires some additional libraries aswell. Install them using:
     ```bash
     pip install -r requirements.txt
     ```
-    You also need to install CUDA and cuDNN
-    CUDA 11.7 https://developer.nvidia.com/cuda-toolkit-archive
-    cuDNN v8.9.7 for CUDA 11.x https://developer.nvidia.com/rdp/cudnn-archive
 
-    Add CUDA 11.7 to the PATH environment variable, usually at C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\bin
-
-3. **Run the Tool**:
+4. **Run the Tool**:
     ```bash
     python dubsense.py
 
-4. **Build**:
+5. **Build**:
     ```bash
     python build_exe_pyinstaller.py
     ```
-   If building fails, check build_exe_pyinstaller.py and check that the path to mklml is ok.
+   If building fails, build_exe_pyinstaller.py
 
 ## Usage
 
