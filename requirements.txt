@@ -1,10 +1,8 @@
 opencv-python
-numpy
 pillow
 screeninfo
-paddleocr==2.8.1
 ttkbootstrap
 psutil
 aiohttp
 pystray
-paddlepaddle-gpu==2.5.2 -f https://www.paddlepaddle.org.cn/whl/linux/mkl/cu117.html
+pytesseract

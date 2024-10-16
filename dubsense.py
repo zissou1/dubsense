@@ -34,6 +34,7 @@ class AppConfig:
         "aspect_ratio": (7, 3),
         "webhook_enabled": True,
         "webhook_url": "http://...",
+        "auto_monitor_cod": True,
     }
 
 class ConfigManager:
@@ -97,15 +98,41 @@ monitoring_active = threading.Event()
 
 # Function to enable or disable widgets
 def set_widgets_state(state):
+    auto_start_checkbox.config(state=state)
     webhook_checkbox.config(state=state)
     webhook_entry.config(state=state)
     test_button.config(state=state)
 
+# Start or stop auto-monitoring based on the checkbox setting
+def is_cod_running():
+    for process in process_iter(['name']):
+        if process.info['name'] == AppConfig.CALL_OF_DUTY_PROCESS_NAME:
+            return True
+    return False
+
+# Monitor Call of Duty process and automatically start/stop monitoring
+def auto_start_monitoring():
+    while True:
+        if auto_start_var.get():  # Check if the checkbox is enabled
+            cod_running = is_cod_running()
+            if cod_running and not monitoring_active.is_set():
+                start_monitoring()
+            elif not cod_running and monitoring_active.is_set():
+                stop_monitoring()
+        time.sleep(5)  # Check every 5 seconds
+
+
 # Function to enable or disable widgets
 def set_widgets_state(state):
+    auto_start_checkbox.config(state=state)
     webhook_checkbox.config(state=state)
     webhook_entry.config(state=state)
     test_button.config(state=state)
+
+# Define update_auto_monitor function to save the checkbox state
+def update_auto_monitor():
+    config_manager.config["auto_monitor_cod"] = auto_start_var.get()
+    config_manager.save_config()
 
 # GUI and Button Handlers
 app = ttk.Window(themename="darkly")
@@ -115,6 +142,7 @@ app.resizable(False, False)
 main_frame = ttk.Frame(app, padding=(15, 10))
 main_frame.grid(row=0, column=0, sticky="nsew")
 
+auto_start_var = ttk.BooleanVar(value=config_manager.config.get("auto_monitor_cod", True))
 webhook_var = ttk.BooleanVar(value=config_manager.config.get("webhook_enabled", True))
 
 # Define Test Webhook function
@@ -135,6 +163,8 @@ def update_webhook_url(event=None):
         config_manager.save_config()
 
 # Create Widgets
+auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle", command=update_auto_monitor)
+auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5) 
 webhook_checkbox = ttk.Checkbutton(main_frame, text="Enable Webhook", variable=webhook_var, bootstyle="primary-round-toggle")
 webhook_checkbox.grid(row=2, column=0, sticky="w", padx=5, pady=5)
 webhook_entry = ttk.Entry(main_frame, width=40)
@@ -299,6 +329,10 @@ async def send_webhook(url, retries=3):
             except aiohttp.ClientError:
                 await asyncio.sleep(2 ** attempt)
         log_message("Failed to send webhook after multiple attempts.")
+
+# Start the auto-monitoring thread
+auto_monitor_thread = threading.Thread(target=auto_start_monitoring, daemon=True)
+auto_monitor_thread.start()
 
 # Start Application
 app.protocol("WM_DELETE_WINDOW", lambda: stop_monitoring() or app.quit())

@@ -10,7 +10,7 @@ pyinstaller_command = [
     'pyinstaller',
     '--onefile',
     '--noconsole',
-    '--additional-hooks-dir=.',
+    #'--additional-hooks-dir=.',
     '--icon=dubsense.ico',
     '--add-binary',
     os.path.join(os.path.dirname(__file__), 'dubsense.ico') + ';.',
