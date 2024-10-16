@@ -9,15 +9,15 @@ from PIL import ImageGrab, Image, ImageTk
 from screeninfo import get_monitors
 import pytesseract
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
-import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from tkinter import scrolledtext, messagebox, BooleanVar
+import customtkinter as ctk
 from psutil import Process, IDLE_PRIORITY_CLASS, process_iter
 import json
 import os
-from PIL import Image 
 from pathlib import Path
 import re
+import pystray
+import ctypes
 
 # Global Constants and Configurations
 class AppConfig:
@@ -97,10 +97,10 @@ monitoring_active = threading.Event()
 
 # Function to enable or disable widgets
 def set_widgets_state(state):
-    auto_start_checkbox.config(state=state)
-    webhook_checkbox.config(state=state)
-    webhook_entry.config(state=state)
-    test_button.config(state=state)
+    auto_start_checkbox.configure(state=state)
+    webhook_checkbox.configure(state=state)
+    webhook_entry.configure(state=state)
+    test_button.configure(state=state)
 
 # Start or stop auto-monitoring based on the checkbox setting
 def is_cod_running():
@@ -120,29 +120,25 @@ def auto_start_monitoring():
                 stop_monitoring()
         time.sleep(5)  # Check every 5 seconds
 
-
-# Function to enable or disable widgets
-def set_widgets_state(state):
-    auto_start_checkbox.config(state=state)
-    webhook_checkbox.config(state=state)
-    webhook_entry.config(state=state)
-    test_button.config(state=state)
-
 # Define update_auto_monitor function to save the checkbox state
 def update_auto_monitor():
     config_manager.config["auto_monitor_cod"] = auto_start_var.get()
     config_manager.save_config()
 
 # GUI and Button Handlers
-app = ttk.Window(themename="darkly")
+ctk.set_appearance_mode("Dark")  # Set the appearance mode to 'Dark'
+ctk.set_default_color_theme("dark-blue")  # You can choose a different theme
+
+app = ctk.CTk()
 app.title("DubSense")
 app.iconbitmap(AppConfig.ICON_PATH)
 app.resizable(False, False)
-main_frame = ttk.Frame(app, padding=(15, 10))
-main_frame.grid(row=0, column=0, sticky="nsew")
 
-auto_start_var = ttk.BooleanVar(value=config_manager.config.get("auto_monitor_cod", True))
-webhook_var = ttk.BooleanVar(value=config_manager.config.get("webhook_enabled", True))
+main_frame = ctk.CTkFrame(app)
+main_frame.grid(row=0, column=0, sticky="nsew", padx=15, pady=10)
+
+auto_start_var = BooleanVar(value=config_manager.config.get("auto_monitor_cod", True))
+webhook_var = BooleanVar(value=config_manager.config.get("webhook_enabled", True))
 
 # Define Test Webhook function
 async def test_webhook():
@@ -160,51 +156,6 @@ def update_webhook_url(event=None):
     if new_url:
         config_manager.config["webhook_url"] = new_url
         config_manager.save_config()
-
-# Create Widgets
-auto_start_checkbox = ttk.Checkbutton(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, bootstyle="primary-round-toggle", command=update_auto_monitor)
-auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5) 
-webhook_checkbox = ttk.Checkbutton(main_frame, text="Enable Webhook", variable=webhook_var, bootstyle="primary-round-toggle")
-webhook_checkbox.grid(row=2, column=0, sticky="w", padx=5, pady=5)
-webhook_entry = ttk.Entry(main_frame, width=40)
-webhook_entry.insert(0, config_manager.config.get("webhook_url", ""))
-webhook_entry.grid(row=2, column=2, padx=(0, 5), pady=5, sticky="w")
-
-# Bind the webhook entry to save the URL when focus is lost (e.g., user presses Enter or clicks away)
-webhook_entry.bind("<FocusOut>", update_webhook_url)
-
-test_button = ttk.Button(main_frame, text="Test", command=lambda: asyncio.run(test_webhook()), bootstyle="light")
-test_button.grid(row=2, column=1, padx=5, pady=5, sticky="w")
-
-log_area = scrolledtext.ScrolledText(main_frame, width=80, height=10, state=DISABLED, background="#2e2e2e", foreground="white")
-log_area.grid(row=3, column=0, columnspan=3, padx=5, pady=10)
-
-image_label = ttk.Label(main_frame)
-image_label.grid(row=4, column=0, columnspan=3, padx=5, pady=10)
-
-start_button = ttk.Button(main_frame, text="Start Monitoring", command=lambda: start_monitoring(), bootstyle="primary")
-start_button.grid(row=5, column=0, padx=10, pady=10)
-stop_button = ttk.Button(main_frame, text="Stop Monitoring", command=lambda: stop_monitoring(), bootstyle="primary")
-stop_button.grid(row=5, column=2, padx=10, pady=10)
-
-def log_message(message):
-    log_area.config(state=tk.NORMAL)
-    log_area.insert(tk.END, f"{message}\n")
-    log_area.see(tk.END)
-    log_area.config(state=tk.DISABLED)
-
-def update_image_display(image):
-    # Convert the processed image to a format suitable for Tkinter display
-    image_pil = Image.fromarray(image)
-    image_tk = ImageTk.PhotoImage(image_pil)
-    image_label.config(image=image_tk)
-    image_label.image = image_tk
-
-# Function to enable or disable specific widgets based on monitoring state
-def set_monitoring_widgets_state(state):
-    webhook_checkbox.config(state=state)
-    webhook_entry.config(state=state)
-    test_button.config(state=state)
 
 # Screen Monitoring Functions
 def start_monitoring():
@@ -233,6 +184,54 @@ def monitor_screen():
         
         time.sleep(2.5)
 
+# Create Widgets
+auto_start_checkbox = ctk.CTkSwitch(main_frame, text="Auto Monitor Call of Duty", variable=auto_start_var, command=update_auto_monitor)
+auto_start_checkbox.grid(row=0, column=0, sticky="w", padx=5, pady=5) 
+
+webhook_checkbox = ctk.CTkSwitch(main_frame, text="Enable Webhook", variable=webhook_var)
+webhook_checkbox.grid(row=2, column=0, sticky="w", padx=5, pady=5)
+
+webhook_entry = ctk.CTkEntry(main_frame, width=300)
+webhook_entry.insert(0, config_manager.config.get("webhook_url", ""))
+webhook_entry.grid(row=2, column=2, padx=(0, 5), pady=5, sticky="w")
+
+# Bind the webhook entry to save the URL when focus is lost (e.g., user presses Enter or clicks away)
+webhook_entry.bind("<FocusOut>", update_webhook_url)
+
+test_button = ctk.CTkButton(main_frame, text="Test", command=lambda: asyncio.run(test_webhook()))
+test_button.grid(row=2, column=1, padx=5, pady=5, sticky="w")
+
+log_area = scrolledtext.ScrolledText(main_frame, width=80, height=10, state=tk.DISABLED, background="#2e2e2e", foreground="white")
+log_area.grid(row=3, column=0, columnspan=3, padx=5, pady=10)
+
+image_label = ctk.CTkLabel(main_frame, text='')
+image_label.grid(row=4, column=0, columnspan=3, padx=5, pady=10)
+
+start_button = ctk.CTkButton(main_frame, text="Start Monitoring", command=start_monitoring)
+start_button.grid(row=5, column=0, padx=10, pady=10)
+stop_button = ctk.CTkButton(main_frame, text="Stop Monitoring", command=stop_monitoring)
+stop_button.grid(row=5, column=2, padx=10, pady=10)
+
+def log_message(message):
+    log_area.config(state=tk.NORMAL)
+    log_area.insert(tk.END, f"{message}\n")
+    log_area.see(tk.END)
+    log_area.config(state=tk.DISABLED)
+
+def update_image_display(image):
+    # Convert the processed image to a format suitable for CTkImage
+    image_pil = Image.fromarray(image)
+    image_ctk = ctk.CTkImage(image_pil, size=(150, (150 * (aspect_ratio[1]) / aspect_ratio[0])))
+    image_label.configure(image=image_ctk)
+    image_label.image = image_ctk  # Keep a reference to prevent garbage collection
+
+# Function to enable or disable specific widgets based on monitoring state
+def set_monitoring_widgets_state(state):
+    webhook_checkbox.configure(state=state)
+    webhook_entry.configure(state=state)
+    test_button.configure(state=state)
+
+
 # OCR and Image Processing
 def capture_screen():
     monitor = get_monitors()[0]
@@ -246,7 +245,7 @@ def capture_screen():
 
     screen = np.array(ImageGrab.grab(bbox=bbox))
 
-    # First resize to width 300, keeping aspect ratio
+    # First resize to width 150, keeping aspect ratio
     new_width = 150
     resize_factor = new_width / screen.shape[1]
     new_height = int(screen.shape[0] * resize_factor)
@@ -254,27 +253,13 @@ def capture_screen():
 
     return resized_screen
 
-def calculate_bbox(monitor):
-    box_height = int(monitor.height * box_height_percent)
-    box_width = int(box_height * box_height * aspect_ratio[0] / aspect_ratio[1])
-    offset_x = int(monitor.height * 0.06)
-    bbox_x = monitor.x + (monitor.width - box_width) // 2 - offset_x
-    bbox_y = monitor.y + (monitor.height - box_height) // 2
-    return (bbox_x, bbox_y, bbox_x + box_width, bbox_y + box_height)
-
 def process_image(image):
     global latest_image
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # Apply thresholding to binarize the image
-    # Apply thresholding to binarize the image
-    _, binary_image = cv2.threshold(gray_image, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # Apply denoising to remove noise
-    denoised_image = cv2.fastNlMeansDenoising(binary_image, h=30)
 
     # Further scale down by half
-    final_width = int(denoised_image.shape[1] * 1)
-    final_height = int(denoised_image.shape[0] * 1)
+    final_width = int(gray_image.shape[1] * 1)
+    final_height = int(gray_image.shape[0] * 1)
     processed_image = cv2.resize(gray_image, (final_width, final_height))
 
     latest_image = processed_image
@@ -333,6 +318,53 @@ async def send_webhook(url, retries=3):
 auto_monitor_thread = threading.Thread(target=auto_start_monitoring, daemon=True)
 auto_monitor_thread.start()
 
+# System Tray Integration
+icon = None  # Global variable to hold the system tray icon
+
+def show_window(tray_icon=None, item=None):
+    app.after(0, app.deiconify)
+
+def hide_window(tray_icon=None, item=None):
+    app.withdraw()
+
+def exit_app(tray_icon=None, item=None):
+    stop_monitoring()
+    icon.stop()
+    app.quit()
+
+def create_tray_icon():
+    global icon
+    image = Image.open(AppConfig.ICON_PATH)
+    menu = pystray.Menu(
+        pystray.MenuItem('Show', show_window, default=True),  # Default action on double-click
+        pystray.MenuItem('Hide', hide_window),
+        pystray.MenuItem('Exit', exit_app)
+    )
+    icon = pystray.Icon("DubSense", image, "DubSense", menu)
+    icon.run_detached()
+
+# Create the system tray icon at startup
+create_tray_icon()
+
+# Hide the window from the taskbar
+def remove_from_taskbar():
+    hwnd = ctypes.windll.user32.GetParent(app.winfo_id())
+    GWL_EXSTYLE = -20
+    WS_EX_APPWINDOW = 0x00040000
+    ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+    ex_style = ex_style & ~WS_EX_APPWINDOW  # Remove WS_EX_APPWINDOW style
+    ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style)
+    # Update the window's appearance
+    SWP_NOSIZE = 0x0001
+    SWP_NOMOVE = 0x0002
+    SWP_NOZORDER = 0x0004
+    SWP_FRAMECHANGED = 0x0020
+    ctypes.windll.user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+
+# Apply the change after the window is initialized
+app.after(0, remove_from_taskbar)
+
 # Start Application
-app.protocol("WM_DELETE_WINDOW", lambda: stop_monitoring() or app.quit())
+app.protocol("WM_DELETE_WINDOW", hide_window)  # Hide window on close
 app.mainloop()

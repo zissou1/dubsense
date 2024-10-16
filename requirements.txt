@@ -1,8 +1,11 @@
 opencv-python
-pillow
+numpy
+Pillow
 screeninfo
+pytesseract
+tkinter
 ttkbootstrap
 psutil
 aiohttp
+customtkinter
 pystray
-pytesseract
