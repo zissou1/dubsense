@@ -27,11 +27,6 @@ class AppConfig:
     BASE_DIR = Path(os.path.expanduser("~")) / ".paddleocr" / "whl"
     
     default_config = {
-        "search_word": "CTO",
-        "check_interval": 1,
-        "trigger_interval": 15,
-        "box_height_percent": 0.22,
-        "aspect_ratio": (7, 3),
         "webhook_enabled": True,
         "webhook_url": "http://...",
         "auto_monitor_cod": True,
@@ -54,6 +49,10 @@ class ConfigManager:
 
 # Configurations
 config_manager = ConfigManager()
+search_word = "CTO"
+trigger_interval = 15
+box_height_percent = 0.22
+aspect_ratio = (7, 3)d
 
 # Setup Logging 
 def configure_logging(log_level=logging.INFO, log_format='%(asctime)s - %(levelname)s - %(message)s'):
@@ -230,15 +229,15 @@ def monitor_screen():
         update_image_display(processed_image)  # Display the processed image
         
         # Detect text and handle logging/webhook within detect_text to respect trigger interval
-        detect_text(processed_image, config_manager.config["search_word"])
+        detect_text(processed_image, search_word)
         
-        time.sleep(config_manager.config["check_interval"])  # Use the check_interval from the configuration
+        time.sleep(2.5)
 
 # OCR and Image Processing
 def capture_screen():
     monitor = get_monitors()[0]
-    box_height = int(monitor.height * config_manager.config["box_height_percent"])
-    box_width = int((box_height * config_manager.config["aspect_ratio"][0]) / config_manager.config["aspect_ratio"][1])
+    box_height = int(monitor.height * box_height_percent)
+    box_width = int((box_height * aspect_ratio[0]) / aspect_ratio[1])
 
     offset_x = int(monitor.height * 0.06)
     bbox_x = monitor.x + (monitor.width - box_width) // 2 - offset_x
@@ -256,8 +255,8 @@ def capture_screen():
     return resized_screen
 
 def calculate_bbox(monitor):
-    box_height = int(monitor.height * config_manager.config["box_height_percent"])
-    box_width = int(box_height * config_manager.config["aspect_ratio"][0] / config_manager.config["aspect_ratio"][1])
+    box_height = int(monitor.height * box_height_percent)
+    box_width = int(box_height * box_height * aspect_ratio[0] / aspect_ratio[1])
     offset_x = int(monitor.height * 0.06)
     bbox_x = monitor.x + (monitor.width - box_width) // 2 - offset_x
     bbox_y = monitor.y + (monitor.height - box_height) // 2
@@ -304,7 +303,7 @@ def detect_text(image, search_word):
     # Use regular expression to check for the exact match of the search word
     if re.search(r'\b' + re.escape(search_word) + r'\b', text):
         # Check cooldown based on trigger_interval
-        if current_time - detect_text.last_detection_time >= config_manager.config["trigger_interval"]:
+        if current_time - detect_text.last_detection_time >= trigger_interval:
             log_message("Victory Detected!")  # Log only once per interval
             detect_text.last_detection_time = current_time  # Update last detection time
             
