@@ -52,7 +52,7 @@ config_manager = ConfigManager()
 search_word = "CTO"
 trigger_interval = 15
 box_height_percent = 0.22
-aspect_ratio = (7, 3)d
+aspect_ratio = (7, 3)
 
 # Setup Logging 
 def configure_logging(log_level=logging.INFO, log_format='%(asctime)s - %(levelname)s - %(message)s'):
