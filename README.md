@@ -19,6 +19,7 @@
     ```
 
 2. **Install Dependencies**:  
+<<<<<<< HEAD
     Tesseract needs to be isntalled, download from https://github.com/UB-Mannheim/tesseract/wiki
     This project requires Python 3.12.7 and some additional libraries. Install them using:
     ```bash
@@ -27,14 +28,23 @@
  
 
 3. **Run the Tool**:
+=======
+   TesseractOCS needs to be installed from https://github.com/UB-Mannheim/tesseract/wiki. 
+   This project requires some additional libraries aswell. Install them using:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4. **Run the Tool**:
+>>>>>>> fe4d890f68055bd79acf09bfc261b9173f1fb47b
     ```bash
     python dubsense.py
 
-4. **Build**:
+5. **Build**:
     ```bash
     python build_exe_pyinstaller.py
     ```
-   If building fails, check build_exe_pyinstaller.py and check that the path to mklml is ok.
+   If building fails, build_exe_pyinstaller.py
 
 ## Usage
 
