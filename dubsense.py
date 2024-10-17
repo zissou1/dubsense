@@ -5,7 +5,7 @@ import logging
 import asyncio
 import aiohttp
 import numpy as np
-from PIL import ImageGrab, Image, ImageTk
+from PIL import Image
 from screeninfo import get_monitors
 import pytesseract
 import tkinter as tk
@@ -18,6 +18,8 @@ from pathlib import Path
 import re
 import pystray
 import ctypes
+import mss
+import psutil
 
 # Global Constants and Configurations
 class AppConfig:
@@ -77,6 +79,13 @@ class GuiLoggingHandler(logging.Handler):
             log_area.config(state=tk.DISABLED)
         except Exception as e:
             pass  # Avoid recursion if logging fails
+
+def set_process_affinity():
+    p = psutil.Process()
+    p.cpu_affinity([0])  # Use only the first CPU core
+
+# Call this function at the beginning of your program
+set_process_affinity()
 
 configure_logging()
 
@@ -231,40 +240,33 @@ def set_monitoring_widgets_state(state):
     webhook_entry.configure(state=state)
     test_button.configure(state=state)
 
-
-# OCR and Image Processing
 def capture_screen():
-    monitor = get_monitors()[0]
-    box_height = int(monitor.height * box_height_percent)
-    box_width = int((box_height * aspect_ratio[0]) / aspect_ratio[1])
+    with mss.mss() as sct:
+        monitor = get_monitors()[0]
+        box_height = int(monitor.height * box_height_percent)
+        box_width = int((box_height * aspect_ratio[0]) / aspect_ratio[1])
 
-    offset_x = int(monitor.height * 0.06)
-    bbox_x = monitor.x + (monitor.width - box_width) // 2 - offset_x
-    bbox_y = monitor.y + (monitor.height - box_height) // 2
-    bbox = (bbox_x, bbox_y, bbox_x + box_width, bbox_y + box_height)
+        offset_x = int(monitor.height * 0.06)
+        bbox_x = monitor.x + (monitor.width - box_width) // 2 - offset_x
+        bbox_y = monitor.y + (monitor.height - box_height) // 2
+        bbox = {'left': bbox_x, 'top': bbox_y, 'width': box_width, 'height': box_height}
 
-    screen = np.array(ImageGrab.grab(bbox=bbox))
+        sct_img = sct.grab(bbox)
+        screen = np.array(sct_img)
 
-    # First resize to width 150, keeping aspect ratio
-    new_width = 150
-    resize_factor = new_width / screen.shape[1]
-    new_height = int(screen.shape[0] * resize_factor)
-    resized_screen = cv2.resize(screen, (new_width, new_height))
+        # First resize to width 150, keeping aspect ratio
+        new_width = 150
+        resize_factor = new_width / screen.shape[1]
+        new_height = int(screen.shape[0] * resize_factor)
+        resized_screen = cv2.resize(screen, (new_width, new_height))
 
-    return resized_screen
+        return resized_screen
+
 
 def process_image(image):
-    global latest_image
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Further scale down by half
-    final_width = int(gray_image.shape[1] * 1)
-    final_height = int(gray_image.shape[0] * 1)
-    processed_image = cv2.resize(gray_image, (final_width, final_height))
-
-    latest_image = processed_image
-    update_image_display(processed_image)
-    return processed_image
+    update_image_display(gray_image)
+    return gray_image
 
 def detect_text(image, search_word):
     # Track last detection time within the function scope to ensure proper cooldown
@@ -367,4 +369,6 @@ app.after(0, remove_from_taskbar)
 
 # Start Application
 app.protocol("WM_DELETE_WINDOW", hide_window)  # Hide window on close
+#import cProfile
+#cProfile.run('app.mainloop()', 'profiling_results.prof')
 app.mainloop()
