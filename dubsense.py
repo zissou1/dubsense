@@ -21,6 +21,7 @@ import ctypes
 import mss
 import psutil
 
+
 # Global Constants and Configurations
 class AppConfig:
     CONFIG_FILE = Path.home() / '.dubsense' / 'config.json'

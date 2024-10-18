@@ -51,3 +51,5 @@ models/det/en/en_PP-OCRv3_det_infer/inference.pdmodel
 models/rec/en/en_PP-OCRv4_rec_infer/inference.pdiparams
 models/rec/en/en_PP-OCRv4_rec_infer/inference.pdiparams.info
 models/rec/en/en_PP-OCRv4_rec_infer/inference.pdmodel
+profiling_results.prof
+
